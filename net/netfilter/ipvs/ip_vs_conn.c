@@ -1366,6 +1366,54 @@ flush_again:
 		goto flush_again;
 	}
 }
+
+/*	Thread function to flush all the connection entries in the
+ *	ip_vs_conn_tab with a matching destination.
+ */
+int ip_vs_conn_flush_dest(void *data)
+{
+	struct ip_vs_conn_flush_dest_tinfo *tinfo = data;
+	struct netns_ipvs *ipvs = tinfo->ipvs;
+	struct ip_vs_dest *dest = tinfo->dest;
+
+	int idx;
+	struct ip_vs_conn *cp, *cp_c;
+
+	IP_VS_DBG_BUF(4, "flushing all connections with destination %s:%d",
+		      IP_VS_DBG_ADDR(dest->af, &dest->addr), ntohs(dest->port));
+
+	rcu_read_lock();
+	for (idx = 0; idx < ip_vs_conn_tab_size; idx++) {
+		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
+			if (cp->ipvs != ipvs)
+				continue;
+
+			if (cp->dest != dest)
+				continue;
+
+			/* As timers are expired in LIFO order, restart
+			 * the timer of controlling connection first, so
+			 * that it is expired after us.
+			 */
+			cp_c = cp->control;
+			/* cp->control is valid only with reference to cp */
+			if (cp_c && __ip_vs_conn_get(cp)) {
+				IP_VS_DBG(4, "del controlling connection\n");
+				ip_vs_conn_expire_now(cp_c);
+				__ip_vs_conn_put(cp);
+			}
+
+			IP_VS_DBG(4, "del connection\n");
+			ip_vs_conn_expire_now(cp);
+		}
+		cond_resched_rcu();
+	}
+	rcu_read_unlock();
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ip_vs_conn_flush_dest);
+
 /*
  * per netns init and exit
  */

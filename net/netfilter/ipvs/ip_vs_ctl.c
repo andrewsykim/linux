@@ -1163,6 +1163,22 @@ static void __ip_vs_del_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest,
 	list_add(&dest->t_list, &ipvs->dest_trash);
 	dest->idle_start = 0;
 	spin_unlock_bh(&ipvs->dest_trash_lock);
+
+	/*	If expire_nodest_conn is enabled, expire all connections
+	 *	immediately in a kthread.
+	 */
+	if (sysctl_expire_nodest_conn(ipvs)) {
+		struct ip_vs_conn_flush_dest_tinfo *tinfo = NULL;
+
+		tinfo = kcalloc(1, sizeof(struct ip_vs_conn_flush_dest_tinfo),
+				GFP_KERNEL);
+		tinfo->ipvs = ipvs;
+		tinfo->dest = dest;
+
+		IP_VS_DBG(3, "flushing connections in kthread\n");
+		kthread_run(ip_vs_conn_flush_dest,
+			    tinfo, "ipvs-flush-dest-conn");
+	}
 }
 
 
