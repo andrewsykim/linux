@@ -1048,6 +1048,11 @@ static inline int sysctl_conn_reuse_mode(struct netns_ipvs *ipvs)
 	return ipvs->sysctl_conn_reuse_mode;
 }
 
+static inline int sysctl_expire_nodest_conn(struct netns_ipvs *ipvs)
+{
+	return ipvs->sysctl_expire_nodest_conn;
+}
+
 static inline int sysctl_schedule_icmp(struct netns_ipvs *ipvs)
 {
 	return ipvs->sysctl_schedule_icmp;
@@ -1207,6 +1212,8 @@ struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p);
 struct ip_vs_conn * ip_vs_conn_out_get_proto(struct netns_ipvs *ipvs, int af,
 					     const struct sk_buff *skb,
 					     const struct ip_vs_iphdr *iph);
+
+void ip_vs_conn_flush_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest);
 
 /* Get reference to gain full access to conn.
  * By default, RCU read-side critical sections have access only to

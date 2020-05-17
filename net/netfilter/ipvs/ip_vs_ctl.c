@@ -1226,6 +1226,15 @@ ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
 	 */
 	__ip_vs_del_dest(svc->ipvs, dest, false);
 
+	/*	If expire_nodest_conn is enabled and protocol is UDP,
+	 *	attempt best effort flush of all connections with this
+	 *	destination.
+	 */
+	if (sysctl_expire_nodest_conn(svc->ipvs) &&
+	    dest->protocol == IPPROTO_UDP) {
+		ip_vs_conn_flush_dest(svc->ipvs, dest);
+	}
+
 	LeaveFunction(2);
 
 	return 0;
