@@ -1367,11 +1367,15 @@ flush_again:
 	}
 }
 
-/*	Flush all the connection entries in the ip_vs_conn_tab with a
- *	matching destination.
+/*	Thread function to flush all the connection entries in the
+ *	ip_vs_conn_tab with a matching destination.
  */
-void ip_vs_conn_flush_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest)
+int ip_vs_conn_flush_dest(void *data)
 {
+	struct ip_vs_conn_flush_dest_thread_data *tinfo = data;
+	struct netns_ipvs *ipvs = tinfo->ipvs;
+	struct ip_vs_dest *dest = tinfo->dest;
+
 	int idx;
 	struct ip_vs_conn *cp, *cp_c;
 
@@ -1401,6 +1405,8 @@ void ip_vs_conn_flush_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest)
 		cond_resched_rcu();
 	}
 	rcu_read_unlock();
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(ip_vs_conn_flush_dest);
 

@@ -1213,7 +1213,12 @@ struct ip_vs_conn * ip_vs_conn_out_get_proto(struct netns_ipvs *ipvs, int af,
 					     const struct sk_buff *skb,
 					     const struct ip_vs_iphdr *iph);
 
-void ip_vs_conn_flush_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest);
+
+int ip_vs_conn_flush_dest(void *data);
+struct ip_vs_conn_flush_dest_thread_data {
+	struct netns_ipvs *ipvs;
+	struct ip_vs_dest *dest;
+};
 
 /* Get reference to gain full access to conn.
  * By default, RCU read-side critical sections have access only to

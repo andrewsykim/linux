@@ -1164,6 +1164,26 @@ static void __ip_vs_del_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest,
 	list_add(&dest->t_list, &ipvs->dest_trash);
 	dest->idle_start = 0;
 	spin_unlock_bh(&ipvs->dest_trash_lock);
+
+	/*	If expire_nodest_conn is enabled, expire all connections
+	 *	immediately in a kthread.
+	 */
+	if (sysctl_expire_nodest_conn(ipvs)) {
+		struct ip_vs_conn_flush_dest_thread_data *tinfo = NULL;
+		struct task_struct *task;
+		int (*threadfn)(void *data);
+		char *thread_name;
+
+		tinfo = kcalloc(1, sizeof(struct ip_vs_conn_flush_dest_thread_data),
+GFP_KERNEL);
+		tinfo->ipvs = ipvs;
+		tinfo->dest = dest;
+
+		threadfn = ip_vs_conn_flush_dest;
+		thread_name = "ipvs-del-dest:%d:%d";
+
+		task = kthread_run(threadfn, tinfo, thread_name, dest->addr, dest->port);
+	}
 }
 
 
@@ -1225,15 +1245,6 @@ ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
 	 *	Delete the destination
 	 */
 	__ip_vs_del_dest(svc->ipvs, dest, false);
-
-	/*	If expire_nodest_conn is enabled and protocol is UDP,
-	 *	attempt best effort flush of all connections with this
-	 *	destination.
-	 */
-	if (sysctl_expire_nodest_conn(svc->ipvs) &&
-	    dest->protocol == IPPROTO_UDP) {
-		ip_vs_conn_flush_dest(svc->ipvs, dest);
-	}
 
 	LeaveFunction(2);
 
